@@ -36,7 +36,7 @@ Retrieve weather information for a specific latitude and longitude.
 The application uses the OpenWeatherMap API to retrieve weather data. You need to provide the API configuration by modifying the application.conf file or setting the following environment variables:
 
 - openWeatherMap.apiUrl: The URL of the OpenWeatherMap API.
-- openWeatherMap.apiId: Your API key for accessing the OpenWeatherMap API.
+- openWeatherMap.apiId: Your API key for accessing the OpenWeatherMap API. Note: This can be overrided by "apiKey" environment variable
 - openWeatherMap.apiExclude: Comma-separated values to exclude from the API response (e.g., minutely,hourly,daily).
 
 ## Testing

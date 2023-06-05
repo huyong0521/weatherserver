@@ -1,30 +1,39 @@
 import cats.effect.kernel.Resource
 import cats.effect.{ExitCode, IO, IOApp}
+import com.comcast.ip4s.IpLiteralSyntax
 import pureconfig._
 import pureconfig.generic.auto._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s._
-import org.http4s.blaze.client.BlazeClientBuilder
-import org.http4s.blaze.server.BlazeServerBuilder
+import org.http4s.implicits._
+import org.http4s.ember.server.EmberServerBuilder
+import org.http4s.ember.client.EmberClientBuilder
+import org.http4s.server.middleware.Logger
 import org.http4s.circe._
 import org.http4s.client.Client
 import org.http4s.dsl.io._
-import org.http4s.implicits._
+import org.http4s.server.Server
 
 import scala.util.{Failure, Success}
 
 object WeatherServer extends IOApp {
-  case class AppConfig(openWeatherMap: OpenWeatherMapConfig)
+
   case class OpenWeatherMapConfig(apiUrl: String, apiId: String, apiExclude: String)
+  case class OpenWeatherClientConfig(maxTotalConnections: Int, maxWaitQueueLimit: Int)
+  case class AppConfig(openWeatherMap: OpenWeatherMapConfig, openWeatherClient: OpenWeatherClientConfig)
 
-  val appConfig = ConfigSource.default.loadOrThrow[AppConfig]
+  val appConfig = ConfigSource.default.loadOrThrow[AppConfig] // use pureconfig to read configuration
   val openWeatherMapConfig  = appConfig.openWeatherMap
+  val openWeatherClientConfig = appConfig.openWeatherClient
 
-  val httpClient: Resource[IO, Client[IO]] = BlazeClientBuilder[IO].resource
-  val weatherService: WeatherService = new WeatherServiceImpl(httpClient, openWeatherMapConfig.apiUrl, openWeatherMapConfig.apiId, openWeatherMapConfig.apiExclude)
+  // The EmberClientBuilder sets up a connection pool, enabling the reuse of connections for multiple requests, supports HTTP/1.x and HTTP/2. Ref: https://http4s.org/v0.23/docs/client.html
+  val clientResource: Resource[IO, Client[IO]] = EmberClientBuilder.default[IO].build
 
-  val weatherRoutes: HttpRoutes[IO] = {
+  val apiKey = sys.env.get("apiKey").getOrElse(openWeatherMapConfig.apiId) // use environment variable to override config
+  val weatherService: WeatherService = new WeatherServiceImpl(clientResource, openWeatherMapConfig.apiUrl, apiKey, openWeatherMapConfig.apiExclude)
+
+  val weatherRoutes = {
     object Units extends QueryParamDecoderMatcher[String]("units")
     HttpRoutes.of[IO] {
       case GET -> Root / "weather" / latitude / longitude :? Units(units) =>
@@ -34,10 +43,9 @@ object WeatherServer extends IOApp {
     }
   }
 
-  val routes = weatherRoutes.orNotFound
+  val finalHttpApp = Logger.httpApp(true, true)(weatherRoutes.orNotFound)
 
   private def getWeather(latitude: String, longitude: String, units: String): IO[Response[IO]] = {
-    //import JsonProtocol.temperatureTypeEnumEncoder
     weatherService.getWeather(latitude.toDouble, longitude.toDouble, units).flatMap(_ match {
       case Success(value) => Ok(value.asJson)
       case Failure(e: IllegalArgumentException) => BadRequest(e.getMessage)
@@ -45,12 +53,13 @@ object WeatherServer extends IOApp {
     })
   }
 
-  def run(args: List[String]): IO[ExitCode] =
-    BlazeServerBuilder[IO]
-      .bindHttp(8080, "0.0.0.0")
-      .withHttpApp(routes)
-      .serve
-      .compile
-      .drain
-      .as(ExitCode.Success)
+val server: Resource[IO, Server] = EmberServerBuilder
+  .default[IO]
+  .withHost(ipv4"0.0.0.0")
+  .withPort(port"8080")
+  .withHttpApp(finalHttpApp)
+  .build
+
+
+  override def run(args: List[String]): IO[ExitCode] = server.use(_ => IO.never)
 }

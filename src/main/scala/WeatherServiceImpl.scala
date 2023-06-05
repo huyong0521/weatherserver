@@ -3,11 +3,11 @@ import WeatherService.{buildTemperatureType, isValidLatitude, isValidLongitude}
 import cats.effect.IO
 import cats.effect.kernel.Resource
 import io.circe.Decoder.Result
-import io.circe.{Decoder, Json}
 import io.circe.generic.auto._
+import io.circe.{Decoder, Json}
 import org.http4s.Uri
-import org.http4s.client.Client
 import org.http4s.circe._
+import org.http4s.client.Client
 import org.typelevel.log4cats._
 import org.typelevel.log4cats.slf4j._
 
@@ -15,12 +15,12 @@ import scala.util.{Failure, Try}
 
 /**
  * WeatherService implementation for OpenWeatherMap
- * @param httpClient Used to call OpenWeatherMap API
+ * @param clientResource Used to call OpenWeatherMap API
  * @param apiUrl OpenWeatherMap URL
  * @param apiId OpenWeatherMap api eky
  * @param apiExclude OpenWeatherMap exclude query parameter
  */
-class WeatherServiceImpl(httpClient: Resource[IO, Client[IO]], apiUrl: String, apiId: String, apiExclude: String) extends WeatherService {
+class WeatherServiceImpl(clientResource: Resource[IO, Client[IO]], apiUrl: String, apiId: String, apiExclude: String) extends WeatherService {
 
   val logger = LoggerFactory[IO].getLogger
 
@@ -28,9 +28,9 @@ class WeatherServiceImpl(httpClient: Resource[IO, Client[IO]], apiUrl: String, a
     if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
       IO.pure(Failure(new IllegalArgumentException("Invalid latitude or longitude")))
     } else {
-      val url: Uri = Uri.unsafeFromString(s"$apiUrl?lat=$latitude&lon=$longitude&appid=$apiId&exclude=$apiExclude&units=$units")
-      httpClient.use { client =>
-        client.expect[Json](url).map { json =>
+      val uri: Uri = Uri.unsafeFromString(s"$apiUrl?lat=$latitude&lon=$longitude&appid=$apiId&exclude=$apiExclude&units=$units")
+      clientResource.use { client =>
+        client.expect[Json](uri).map { json =>
           buildResponseBody(json, units)
         }.handleErrorWith(e => handleError(e))
       }
