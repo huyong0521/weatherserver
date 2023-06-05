@@ -17,7 +17,7 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-circe" % http4sVersion,
   "org.http4s" %% "http4s-blaze-server" % http4sBlaze,
   "org.http4s" %% "http4s-blaze-client" % http4sBlaze,
-  "com.typesafe" % "config" % "1.4.1",
+  "com.github.pureconfig" %% "pureconfig" % "0.17.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28",
   "org.typelevel" %% "log4cats-core" % log4catsVersion,
   "org.typelevel" %% "log4cats-slf4j" % log4catsVersion,

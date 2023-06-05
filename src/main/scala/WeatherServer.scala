@@ -1,6 +1,7 @@
 import cats.effect.kernel.Resource
 import cats.effect.{ExitCode, IO, IOApp}
-import com.typesafe.config.ConfigFactory
+import pureconfig._
+import pureconfig.generic.auto._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import org.http4s._
@@ -14,17 +15,14 @@ import org.http4s.implicits._
 import scala.util.{Failure, Success}
 
 object WeatherServer extends IOApp {
+  case class AppConfig(openWeatherMap: OpenWeatherMapConfig)
+  case class OpenWeatherMapConfig(apiUrl: String, apiId: String, apiExclude: String)
 
-  val config = ConfigFactory.load()
-
-  // OpenWeatherMap API configuration
-  val openWeatherMapConfig = config.getConfig("openWeatherMap")
-  val apiUrl = openWeatherMapConfig.getString("apiUrl")
-  val apiId = openWeatherMapConfig.getString("apiId")
-  val apiExclude = openWeatherMapConfig.getString("apiExclude")
+  val appConfig = ConfigSource.default.loadOrThrow[AppConfig]
+  val openWeatherMapConfig  = appConfig.openWeatherMap
 
   val httpClient: Resource[IO, Client[IO]] = BlazeClientBuilder[IO].resource
-  val weatherService: WeatherService = new WeatherServiceImpl(httpClient, apiUrl, apiId, apiExclude)
+  val weatherService: WeatherService = new WeatherServiceImpl(httpClient, openWeatherMapConfig.apiUrl, openWeatherMapConfig.apiId, openWeatherMapConfig.apiExclude)
 
   val weatherRoutes: HttpRoutes[IO] = {
     object Units extends QueryParamDecoderMatcher[String]("units")
@@ -39,7 +37,7 @@ object WeatherServer extends IOApp {
   val routes = weatherRoutes.orNotFound
 
   private def getWeather(latitude: String, longitude: String, units: String): IO[Response[IO]] = {
-    import JsonProtocol.temperatureTypeEnumEncoder
+    //import JsonProtocol.temperatureTypeEnumEncoder
     weatherService.getWeather(latitude.toDouble, longitude.toDouble, units).flatMap(_ match {
       case Success(value) => Ok(value.asJson)
       case Failure(e: IllegalArgumentException) => BadRequest(e.getMessage)

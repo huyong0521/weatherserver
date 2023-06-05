@@ -4,7 +4,6 @@ import io.circe.Encoder
 
 import scala.util.Try
 
-// Case classes to represent interested part of JSON responses from OpenWeatherMap
 case class WeatherCondition(main: String, description: String)
 case class CurrentWeather(temp: Double, weather: List[WeatherCondition])
 case class WeatherAlert(event: String, start: Long, end: Long, description: String)
@@ -26,9 +25,6 @@ trait WeatherService {
 object TemperatureType extends Enumeration {
   type TemperatureType = Value
   val Hot, Moderate, Cold, Unknown = Value
-}
-
-object JsonProtocol {
   implicit val temperatureTypeEnumEncoder: Encoder[TemperatureType.Value] = Encoder.encodeString.contramap(_.toString)
 }
 
