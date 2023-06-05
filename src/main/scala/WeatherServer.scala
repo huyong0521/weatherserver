@@ -20,12 +20,10 @@ import scala.util.{Failure, Success}
 object WeatherServer extends IOApp {
 
   case class OpenWeatherMapConfig(apiUrl: String, apiId: String, apiExclude: String)
-  case class OpenWeatherClientConfig(maxTotalConnections: Int, maxWaitQueueLimit: Int)
-  case class AppConfig(openWeatherMap: OpenWeatherMapConfig, openWeatherClient: OpenWeatherClientConfig)
+  case class AppConfig(openWeatherMap: OpenWeatherMapConfig)
 
   val appConfig = ConfigSource.default.loadOrThrow[AppConfig] // use pureconfig to read configuration
   val openWeatherMapConfig  = appConfig.openWeatherMap
-  val openWeatherClientConfig = appConfig.openWeatherClient
 
   // The EmberClientBuilder sets up a connection pool, enabling the reuse of connections for multiple requests, supports HTTP/1.x and HTTP/2. Ref: https://http4s.org/v0.23/docs/client.html
   val clientResource: Resource[IO, Client[IO]] = EmberClientBuilder.default[IO].build
