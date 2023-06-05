@@ -1,0 +1,10 @@
+logs
+project
+target
+tmp
+.history
+/.idea
+/*.iml
+/out
+/.classpath
+.bsp/
