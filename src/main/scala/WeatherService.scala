@@ -1,5 +1,4 @@
 import TemperatureType.TemperatureType
-import cats.effect.IO
 import io.circe.Encoder
 
 import scala.util.Try
@@ -11,15 +10,15 @@ case class WeatherAlert(event: String, start: Long, end: Long, description: Stri
 // Case class to represent JSON response to the client of this Weather Server
 case class WeatherResponse(currentWeather: CurrentWeather, temperatureType: TemperatureType, alerts: List[WeatherAlert])
 
-trait WeatherService {
+trait WeatherService[F[_]] {
   /**
    * Try to get WeatherResponse
    * @param latitude
    * @param longitude
    * @param units unit type used for weather temperature like C or F
-   * @return
+   * @return Failable response in side-effect container F
    */
-  def getWeather(latitude: Double, longitude: Double, units: String): IO[Try[WeatherResponse]]
+  def getWeather(latitude: Double, longitude: Double, units: String): F[Try[WeatherResponse]]
 }
 
 object TemperatureType extends Enumeration {

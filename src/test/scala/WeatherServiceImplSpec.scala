@@ -1,12 +1,15 @@
 import TemperatureType.{Hot, Moderate}
-import cats.effect.{IO, Resource}
+import cats.effect.IO
 import io.circe.Json
 import io.circe.parser.parse
 import munit.CatsEffectSuite
+import org.http4s.circe._
 import org.http4s.client.Client
 import org.http4s.{EntityDecoder, Uri}
 import org.mockito.ArgumentMatchersSugar.any
 import org.mockito.MockitoSugar._
+import org.typelevel.log4cats.LoggerFactory
+import org.typelevel.log4cats.slf4j._
 
 import scala.util.{Failure, Try}
 
@@ -17,7 +20,8 @@ class WeatherServiceSpec extends CatsEffectSuite {
 
   val mockClient = mock[Client[IO]]
 
-  val weatherService = new WeatherServiceImpl(mockClient, apiUrl, apiId, apiExclude)
+  implicit val logger  = LoggerFactory[IO].getLogger
+  val weatherService = new WeatherServiceImpl[IO](mockClient, apiUrl, apiId, apiExclude)
 
   val units = "metric"
 

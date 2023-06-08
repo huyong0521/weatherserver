@@ -1,37 +1,39 @@
 import OpenWeatherMapJsonHelper.parseJsonByKey
 import WeatherService.{buildTemperatureType, isValidLatitude, isValidLongitude}
-import cats.effect.IO
+import cats.{Monad, MonadError}
+import cats.implicits._
 import io.circe.Decoder.Result
 import io.circe.generic.auto._
 import io.circe.{Decoder, Json}
-import org.http4s.Uri
-import org.http4s.circe._
 import org.http4s.client.Client
+import org.http4s.{EntityDecoder, Uri}
 import org.typelevel.log4cats._
-import org.typelevel.log4cats.slf4j._
 
 import scala.util.{Failure, Try}
 
 /**
  * WeatherService implementation for OpenWeatherMap
- * @param client Used to call OpenWeatherMap API
- * @param apiUrl OpenWeatherMap URL
- * @param apiId OpenWeatherMap api eky
+ *
+ * @param client     Used to call OpenWeatherMap API
+ * @param apiUrl     OpenWeatherMap URL
+ * @param apiId      OpenWeatherMap api eky
  * @param apiExclude OpenWeatherMap exclude query parameter
  */
-class WeatherServiceImpl(client: Client[IO], apiUrl: String, apiId: String, apiExclude: String) extends WeatherService {
+class WeatherServiceImpl[F[+_] : Monad](client: Client[F], apiUrl: String, apiId: String, apiExclude: String)
+                                             (implicit decoder: EntityDecoder[F, Json], logger: Logger[F], monadError: MonadError[F, Throwable]) extends WeatherService[F] {
 
-  val logger = LoggerFactory[IO].getLogger
-  override def getWeather(latitude: Double, longitude: Double, units: String): IO[Try[WeatherResponse]] = {
+
+  override def getWeather(latitude: Double, longitude: Double, units: String): F[Try[WeatherResponse]] = {
     if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
-      IO.pure(Failure(new IllegalArgumentException("Invalid latitude or longitude")))
+      Failure[WeatherResponse](new IllegalArgumentException("Invalid latitude or longitude")).pure[F]
     } else {
       val uri: Uri = Uri.unsafeFromString(s"$apiUrl?lat=$latitude&lon=$longitude&appid=$apiId&exclude=$apiExclude&units=$units")
-      val call = client.expect[Json](uri).map { json =>
+      val call: F[Try[WeatherResponse]] = client.expect[Json](uri).map { json =>
         buildResponseBody(json, units)
       }.handleErrorWith(e => handleError(e))
+
       for {
-        _ <- logger.info(s"client: ${client.toString} $uri")
+         _ <- logger.info(s"client: ${client.toString} $uri")
         r <- call
       } yield r
     }
@@ -58,7 +60,7 @@ class WeatherServiceImpl(client: Client[IO], apiUrl: String, apiId: String, apiE
     } yield WeatherResponse(currentWeather, buildTemperatureType(currentWeather.temp, units), alerts)
   }
 
-  def handleError(error: Throwable): IO[Try[WeatherResponse]] = {
+  def handleError(error: Throwable): F[Try[WeatherResponse]] = {
     for {
       _ <- logger.error(error.getMessage)
     } yield Failure(new Throwable("Error from openWeatherMap API"))
@@ -67,5 +69,7 @@ class WeatherServiceImpl(client: Client[IO], apiUrl: String, apiId: String, apiE
 
 object OpenWeatherMapJsonHelper {
   // in the given Json, find the first targetKey, and decode its Json object to T
-  def parseJsonByKey[T](json: Json, targetKey: String)(implicit d: Decoder[T]): Option[Result[T]] = json.hcursor.downField(targetKey).focus.map(_.as[T])
+  def parseJsonByKey[T](json: Json, targetKey: String)(implicit d: Decoder[T]): Option[Result[T]] = {
+    json.hcursor.downField(targetKey).focus.map(_.as[T])
+  }
 }
