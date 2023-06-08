@@ -1,7 +1,6 @@
 import OpenWeatherMapJsonHelper.parseJsonByKey
 import WeatherService.{buildTemperatureType, isValidLatitude, isValidLongitude}
 import cats.effect.IO
-import cats.effect.kernel.Resource
 import io.circe.Decoder.Result
 import io.circe.generic.auto._
 import io.circe.{Decoder, Json}
@@ -15,25 +14,26 @@ import scala.util.{Failure, Try}
 
 /**
  * WeatherService implementation for OpenWeatherMap
- * @param clientResource Used to call OpenWeatherMap API
+ * @param client Used to call OpenWeatherMap API
  * @param apiUrl OpenWeatherMap URL
  * @param apiId OpenWeatherMap api eky
  * @param apiExclude OpenWeatherMap exclude query parameter
  */
-class WeatherServiceImpl(clientResource: Resource[IO, Client[IO]], apiUrl: String, apiId: String, apiExclude: String) extends WeatherService {
+class WeatherServiceImpl(client: Client[IO], apiUrl: String, apiId: String, apiExclude: String) extends WeatherService {
 
   val logger = LoggerFactory[IO].getLogger
-
   override def getWeather(latitude: Double, longitude: Double, units: String): IO[Try[WeatherResponse]] = {
     if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
       IO.pure(Failure(new IllegalArgumentException("Invalid latitude or longitude")))
     } else {
       val uri: Uri = Uri.unsafeFromString(s"$apiUrl?lat=$latitude&lon=$longitude&appid=$apiId&exclude=$apiExclude&units=$units")
-      clientResource.use { client =>
-        client.expect[Json](uri).map { json =>
-          buildResponseBody(json, units)
-        }.handleErrorWith(e => handleError(e))
-      }
+      val call = client.expect[Json](uri).map { json =>
+        buildResponseBody(json, units)
+      }.handleErrorWith(e => handleError(e))
+      for {
+        _ <- logger.info(s"client: ${client.toString} $uri")
+        r <- call
+      } yield r
     }
   }
 

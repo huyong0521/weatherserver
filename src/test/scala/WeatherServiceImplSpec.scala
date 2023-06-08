@@ -16,9 +16,8 @@ class WeatherServiceSpec extends CatsEffectSuite {
   val apiExclude = "api-exclude"
 
   val mockClient = mock[Client[IO]]
-  val httpClient: Resource[IO, Client[IO]] = Resource.pure[IO, Client[IO]](mockClient)
 
-  val weatherService = new WeatherServiceImpl(httpClient, apiUrl, apiId, apiExclude)
+  val weatherService = new WeatherServiceImpl(mockClient, apiUrl, apiId, apiExclude)
 
   val units = "metric"
 
@@ -123,8 +122,7 @@ class WeatherServiceSpec extends CatsEffectSuite {
 
   private def mockThenCallService(jsonResponse: Json, latitude: Double, longitude: Double): IO[Try[WeatherResponse]] = {
     when(mockClient.expect[Json](any[Uri])(any[EntityDecoder[IO, Json]])).thenReturn(IO.pure(jsonResponse))
-    val httpClient: Resource[IO, Client[IO]] = Resource.pure[IO, Client[IO]](mockClient)
-    val weatherService = new WeatherServiceImpl(httpClient, apiUrl, apiId, apiExclude)
+    val weatherService = new WeatherServiceImpl(mockClient, apiUrl, apiId, apiExclude)
     weatherService.getWeather(latitude, longitude, units)
   }
 
