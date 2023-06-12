@@ -1,5 +1,6 @@
 import TemperatureType.{Hot, Moderate}
 import cats.effect.IO
+import io.chrisdavenport.circuit.CircuitBreaker
 import io.circe.Json
 import io.circe.parser.parse
 import munit.CatsEffectSuite
@@ -19,16 +20,15 @@ class WeatherServiceSpec extends CatsEffectSuite {
   val apiExclude = "api-exclude"
 
   val mockClient = mock[Client[IO]]
-
+  val mockCircuitBreaker = mock[CircuitBreaker[IO]]
   implicit val logger  = LoggerFactory[IO].getLogger
-  val weatherService = new WeatherServiceImpl[IO](mockClient, apiUrl, apiId, apiExclude)
 
   val units = "metric"
 
     test ("return Failure for invalid latitude or longitude") {
       val latitude = 100.0
       val longitude = 200.0
-
+      val weatherService = new WeatherServiceImpl[IO](mockClient, apiUrl, apiId, apiExclude, mockCircuitBreaker)
       val expectedFailure = Failure(new IllegalArgumentException("Invalid latitude or longitude"))
       weatherService.getWeather(latitude, longitude, units).flatMap { result =>
         IO(assertEquals(result.toString, expectedFailure.toString))
@@ -126,7 +126,9 @@ class WeatherServiceSpec extends CatsEffectSuite {
 
   private def mockThenCallService(jsonResponse: Json, latitude: Double, longitude: Double): IO[Try[WeatherResponse]] = {
     when(mockClient.expect[Json](any[Uri])(any[EntityDecoder[IO, Json]])).thenReturn(IO.pure(jsonResponse))
-    val weatherService = new WeatherServiceImpl(mockClient, apiUrl, apiId, apiExclude)
+    when(mockCircuitBreaker.state).thenReturn(IO.pure(CircuitBreaker.Closed(1)))
+    when(mockCircuitBreaker.protect(any[IO[Json]])).thenReturn(IO.pure(jsonResponse))
+    val weatherService = new WeatherServiceImpl(mockClient, apiUrl, apiId, apiExclude, mockCircuitBreaker)
     weatherService.getWeather(latitude, longitude, units)
   }
 

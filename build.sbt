@@ -16,6 +16,7 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-circe" % http4sVersion,
   "org.http4s" %% "http4s-ember-server" % http4sVersion,
   "org.http4s" %% "http4s-ember-client" % http4sVersion,
+  "io.chrisdavenport" %% "circuit" % "0.5.1",
   "com.github.pureconfig" %% "pureconfig" % "0.17.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28",
   "org.typelevel" %% "log4cats-core" % log4catsVersion,

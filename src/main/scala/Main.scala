@@ -6,5 +6,5 @@ object Main extends IOApp.Simple {
 
   implicit val logger  = LoggerFactory[IO].getLogger
 
-  val run = WeatherServer.run[IO]
+  val run: IO[Nothing] = WeatherServer.run[IO]
 }
